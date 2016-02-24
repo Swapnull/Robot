@@ -9,51 +9,35 @@
 ;; diagonal moves are 1 & a bit if needed.
 ;; maybe use http://quil.info/ for GUI if everything is working early.
 
+;; TSP IMPLEMENTATIONS
+;; https://github.com/hdurer/clj-ga-salesman/blob/master/src/info/betareduction/dojo/holger_salesman.clj
+;; https://github.com/bgianfo/traveling-salesman/blob/master/clojure/tsp-ants.clj
+;; https://github.com/rrees/clj-ga-salesman/blob/master/src/salesman.clj
 
-(def possibleMoves
-  [
-      ["r101" ["o101"]] ["r103" ["o103"]] ["r105" ["o105"]] ["r107" ["o107"]] ["r109" ["o109"]] ["r111" ["o111"]]
-      ["r113" ["o113"]] ["r115" ["o115"]] ["r117" ["o117"]] ["r119" ["o119"]] ["r121" ["o121"]] ["r123" ["o123"]]
-      ["r125" ["o125"]] ["r127" ["o127"]] ["r129" ["o129"]] ["r131" ["o131"]] ["o101" ["r101" "o103" "ts" "a3"]]
-      ["o103" ["r103" "o101" "o105" "b3"]] ["o105" ["r105" "o103" "o107"]] ["o107" ["r107" "o105" "o109" "b4"]]
-      ["o109" ["r109" "o105" "o111"]] ["o111" ["r111" "o193"]] ["o113" ["r113" "o111" "o109" ]] ["o115" ["r115" "o113" "o117"]]
-      ["o117" ["r117" "o115" "o119" "storage"]] ["o119" ["r119" "o117" "o121" "storage"]] ["o121" ["r121" "o119" "o123"]]
-      ["o123" ["r123" "o121" "o125" "c1"]] ["o125" ["r125" "o123" "o127" "d2"]] ["o127" ["r127" "o125" "o129"]]
-      ["o129" ["r129" "o127" "o131" "d1"]] ["o131" ["r131" "mail"]] ["storage" ["o117" "o119"]] ["mail" ["ts" "o131" "office"]]
-      ["office" ["mail"]] ["ts" ["mail" "o101" "a2"]] ["a1" ["a3" "b1" "d3"]] ["a2" ["a3" "ts"]] ["a3" ["a1" "a2" "o101"]]
-      ["b1" ["a1" "b2" "b3" "c2"]] ["b2" ["b1" "b4" "c3"]] ["b3" ["b1" "b4" "o103"]] ["b4" ["b2" "b3" "o107"]] ["c1" ["c2" "o123"]]
-      ["c2" ["b1" "c1" "c3"]] ["c3" ["b2" "c2"]] ["d1" ["d2" "o129"]] ["d2" ["d1" "d3" "o125"]] ["d3" ["a1" "d2"]]
-  ]
-)
 
-(def robotLocation ["r105"])
+;Load the file that contains all possible moves
+(load-file "possibleMoves.clj")
 
-(defn in?
-  "true if collection contains element"
-  [collection element]
-  (some #(= element %) collection))
+(def routes {
+'(a b) 2,
+'(b a) 3,
+'(c b) 4,
+'(b c) 4,
+'(c a) 5,
+'(a c) 2,
+'(d c) 9,
+'(c d) 7})
 
-(defn getPossibleMoves [start]
-    (get (first (filter #(= (first %) start) possibleMoves)) 1)
-)
+(defn targets[src]
+    (map (comp second key)
+         (filter
+             (fn [keyval] (= 'a (first (key keyval))))
+             routes)))
 
-(defn getShortestRoute [start target]
-    (loop [s start
-           t target
-           r [start]]
-           (if (in? (getPossibleMoves s) t) ;; target is in collection
-               (conj r target)
-               (recur s t r)
-           )
-    )
-)
-
-;;(defn lazySeqToInt [x]
-;;    (read-string (apply str (map #(- (int %) 48) x)))
-;;)
-
+(defn score[route]
+    (get routes route))
 
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (getShortestRoute "r103" "o103"))
+  (prn "hello world"))
