@@ -1,5 +1,5 @@
 (ns robot.core
- (:gen-class))
+  (:require [clojure.math.combinatorics :as combo]))
 
 ;; door is twice as expensive as going through a door.
 ;; doors cannot stay open
@@ -15,8 +15,7 @@
 (load-file "src/robot/weights.clj")
 
 (def robotLocation ["storage"])
-(def toCollect [""])
-(def carrying [""])
+(def packages [["r101" "r109" 0]]) ;; [start target collected?]
 
 ;; HELPER FUNCTIONS
 (defn in?
@@ -36,13 +35,17 @@
   (loop [w weights
          c (first w)
          t 0  
-         i 0] 
+         i 1] 
     (if (empty? w)
       (+ (- (count data) i) t)
       (if (or (and (in? data (first c)) (in? data (second c))))
         (recur (rest w) (first (rest w)) (+ t (last c)) (inc i))
         (recur (rest w) (first (rest w)) t i)))))
 
+(defn length? 
+  "gets the length of a path"
+  [data] 
+  (reduce + (map #(first %) data)))
 
 (defn getPossibleMoves 
   "get possible moves from the current node"
@@ -54,34 +57,43 @@
   [node path]
   (filter #(not (in? path %)) (getPossibleMoves node)))
 
-(defn getRoutes
+(defn getVertex
   "Get all the routes between two nodes"
-  ([s t] (getRoutes s t [])) ;; only start and target provided
+  ([s t] (getVertex s t [])) ;; only start and target provided
   ([s t p]
     (if(= s t)
      (conj p t)
       (if (empty? (getNewNodes s p))
           nil  ;; no moves available, return nil to signal this
-          (flt (map #(flt (getRoutes % t (conj p s)))  (getNewNodes s (conj p s)))) ;; recur for every option
+          (flt (map #(flt (getVertex % t (conj p s)))  (getNewNodes s (conj p s)))) ;; recur for every option
       ))))
   
-(defn getShortestRoute 
+(defn getShortestVertex 
   "Get the shortest vertex between two nodes"
   [start target]
-  (first (sort (zipmap (map #(min (cost? %)) (getRoutes start target)) (getRoutes start target)))))
+  (first (sort (zipmap (map #(min (cost? %)) (getVertex start target)) (getVertex start target)))))
 
-
-(defn deliveryRoute
+(defn getPossibleRoute
+  "build up a route from data"
   [data]
-  (loop [d (conj data "office") r []]
+  (loop [d data r []]
     (if (= 1 (count d))
       r
-      (recur (rest d) (conj r (getShortestRoute (first d) (second d)))))))
+      (recur (rest d) (conj r (getShortestVertex (first d) (second d)))))))
+
+(defn getDeliveryRoutes
+  "get all the valid delivery routes"
+  ([targets] (getDeliveryRoutes "office" targets "office")) ;; if no start and end supplied, assume both as office
+  ([start targets] (getDeliveryRoutes start targets "office")) ;;if no end supplied, assume office
+  ([start targets end]
+    (map #(getPossibleRoute (flatten [start % end])) (combo/permutations targets))))
+
+(defn getShortestRoute 
+  "gets all the valid routes and their costs and then returns the lowest cost"
+  [targets]
+  (first (sort (zipmap (map #(length? %) (getDeliveryRoutes targets)) (map #(flt %) (getDeliveryRoutes targets))))))
 
 (defn -main
  "Wrapper to run program"
  [& args]
- (prn (getShortestRoute (first robotLocation) "o131")))
-
-
-
+ (prn (getShortestVertex (first robotLocation) "o131")))
