@@ -1,21 +1,15 @@
 (ns robot.core
   (:require [clojure.math.combinatorics :as combo]))
+;;  (:use [clojure.repl]
+;;   [seesaw.core]))
 
-;; door is twice as expensive as going through a door.
-;; doors cannot stay open
-;; no cost of changing direction
-;; 1 office length is not 1 unit some doors are offset so may need to use fraction of units
-;; if stuck can redraw on a regular grid.
-;; diagonal moves are 1 & a bit if needed.
-;; maybe use http://quil.info/ for GUI if everything is working early.
-
-
-;Load the file that contains all possible moves
-(load-file "src/robot/possibleMoves.clj")
-(load-file "src/robot/weights.clj")
+;;Load external data files
+(load-file "src/robot/possibleMoves.clj") ;; contains all the possible moves
+(load-file "src/robot/weights.clj") ;; contains any extra weight for vertices
 
 (def robotLocation ["storage"])
-(def packages [["r101" "r109" 0]]) ;; [start target collected?]
+(def packagesToCollect [["r101" "r109"] ["r109" "r107"]]) ;; [start target]
+(def packagesToDeliver [])
 
 ;; HELPER FUNCTIONS
 (defn in?
@@ -53,7 +47,7 @@
   (get (first (filter #(= (first %) start) possibleMoves)) 1))
 
 (defn getNewNodes 
-  "gets all nodes that are not in the path"
+  "gets all possible nodes that are not already in the path"
   [node path]
   (filter #(not (in? path %)) (getPossibleMoves node)))
 
@@ -81,19 +75,49 @@
       r
       (recur (rest d) (conj r (getShortestVertex (first d) (second d)))))))
 
+(defn buildList
+  [start targets end]
+  (loop [t targets
+         l []]
+    (if (empty? t)
+      [start l end]
+      (if (or (in? l (first t)) (or (= start (first t)) (= end (first t))))
+        (recur (rest t) l)
+        (recur (rest t) (conj l (first t)))
+      )
+    )
+  )
+)
+
 (defn getDeliveryRoutes
   "get all the valid delivery routes"
   ([targets] (getDeliveryRoutes "office" targets "office")) ;; if no start and end supplied, assume both as office
   ([start targets] (getDeliveryRoutes start targets "office")) ;;if no end supplied, assume office
   ([start targets end]
-    (map #(getPossibleRoute (flatten [start % end])) (combo/permutations targets))))
+    (pmap #(getPossibleRoute (flatten (buildList start % end))) (combo/permutations targets))))
 
 (defn getShortestRoute 
   "gets all the valid routes and their costs and then returns the lowest cost"
   [targets]
   (first (sort (zipmap (map #(length? %) (getDeliveryRoutes targets)) (map #(flt %) (getDeliveryRoutes targets))))))
 
-(defn -main
- "Wrapper to run program"
- [& args]
- (prn (getShortestVertex (first robotLocation) "o131")))
+
+(defn getUncollectedPackages
+  [location]
+  (filter #(= location (first %)) packagesToCollect)
+)
+
+(defn getUncollectedPackages
+  [location]
+  (filter #(not (= location (first %))) packagesToCollect)
+)
+
+(defn go [packages]
+  (loop [
+    p packages
+   r []]
+    (if (empty? packages)
+      r
+      (recur ( p) (conj r (getShortestRoute (filter #(first %) p)))))))
+
+(go ["r131" "r101"])
