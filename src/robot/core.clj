@@ -7,15 +7,14 @@
 (load-file "src/robot/possibleMoves.clj") ;; contains all the possible moves
 (load-file "src/robot/weights.clj") ;; contains any extra weight for vertices
 
-(def robotLocation ["storage"])
-(def packagesToCollect [["r101" "r105"] ["r103" "office"]]) ;; [start target]
-(def packagesToDeliver [])
+;;(def packagesToCollect [["r101" "r105"] ["r103" "office"]]) ;; [start target]
+;;(def packagesToDeliver [])
 
 ;; HELPER FUNCTIONS
 (defn in?
  "true if collection contains element"
- [collection element]
- (some #(= element %) collection))
+  [collection element]
+  (some #(= element %) collection))
 
 ;; function taken from http://stackoverflow.com/a/35300641/2237577
 (defn flt 
@@ -50,6 +49,7 @@
   "gets all nodes that are not in the path"
   [node path]
   (filter #(not (in? path %)) (getPossibleMoves node)))
+
 
 (defn getVertex
   "Get all the routes between two nodes"
@@ -101,19 +101,16 @@
   ([targets] (first (sort (zipmap (map #(length? %) (getDeliveryRoutes targets)) (map #(flt %) (getDeliveryRoutes targets))))))
   ([start targets] (first (sort (zipmap (map #(length? %) (getDeliveryRoutes start targets)) (map #(flt %) (getDeliveryRoutes start targets)))))))
 
-(getShortestRoute "r103" ["office" "r101"])
-
-
 (defn getDestinations
   "gets all the destinations the robot needs to visit"
-  []
-  (if (empty? packagesToDeliver)
-    (if (empty? packagesToCollect)
+  [ptc ptd]
+  (if (empty? ptd)
+    (if (empty? ptc)
       []  
-      (map #(first %) packagesToCollect))
-    (if (empty? packagesToCollect)
-      packagesToDeliver
-      (conj (map #(first %) packagesToCollect) packagesToDeliver))))
+      (map #(first %) ptc))
+    (if (empty? ptc)
+      ptd
+      (conj (map #(first %) ptc) ptd))))
 
 
 
@@ -134,19 +131,25 @@
   [d p]
   (map #(second %) (filter #(= (getFirstDestination d) (first %)) p)))
 
-(defn run []
-  (loop [d (getDestinations)
-         p packagesToCollect
+(defn run [ptc ptd]
+  (loop [d (conj (getDestinations ptc ptd) "office")
+         p ptc ;;packages to collect
          r []
          s "office"
          l 0]
-    (if (empty? d)
+    (if (<= (count d) 1)
       {"Length" l "Route" r}
-      (recur (distinct (flatten (conj (remove #{(getFirstDestination s d)} d) (collectPackages d p))))
+      (recur (conj (flatten (conj (remove #{(getFirstDestination s d)} d) (collectPackages d p))) "office" )
              (filter #(not (= (getFirstDestination s d) (first %))) p) 
              (conj r (getFirstPath s d))
              (getFirstDestination s d)
              (+ l (getFirstPathDistance s d))))))
 
-
-(run)
+(<= 2 1)
+(run [["r131" "office"]] []) ;;Task 1 Collect a parcel from the main office and deliver it to R131
+(run [["r119" "office"]] []) ;;Task 2 Collect a parcel from the main office and deliver it to R119
+(run [["r113" "r115"]] []) ;;Task 3 Collect a parcel from R113 and deliver it to room R115
+(run [["r113" "r129"]] []) ;;Task 4 Collect a parcel from R113 and deliver it to room R129
+(run [["office" "r113"] ["r113" "office"]] []) ;; Task 5 Take a parcel from office to R131. Collect another from R131 and deliver to office
+(run [] ["r131" "r111"]) ;; Task 6 Take two parcels from the main office to rooms r131 and r111
+(run [["r121" "office"]] ["r131" "r111"]) ;; Task 7 (and 8?) Take 2 parcels from main office to r131 and r111. Collect a parcel from r121 and bring to office
