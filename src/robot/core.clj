@@ -8,7 +8,7 @@
 (load-file "src/robot/weights.clj") ;; contains any extra weight for vertices
 
 (def robotLocation ["storage"])
-(def packagesToCollect [["r101" "r109"] ["r109" "r107"]]) ;; [start target]
+(def packagesToCollect [["r101" "r105"] ["r103" "office"]]) ;; [start target]
 (def packagesToDeliver [])
 
 ;; HELPER FUNCTIONS
@@ -47,7 +47,7 @@
   (get (first (filter #(= (first %) start) possibleMoves)) 1))
 
 (defn getNewNodes 
-  "gets all possible nodes that are not already in the path"
+  "gets all nodes that are not in the path"
   [node path]
   (filter #(not (in? path %)) (getPossibleMoves node)))
 
@@ -98,26 +98,55 @@
 
 (defn getShortestRoute 
   "gets all the valid routes and their costs and then returns the lowest cost"
-  [targets]
-  (first (sort (zipmap (map #(length? %) (getDeliveryRoutes targets)) (map #(flt %) (getDeliveryRoutes targets))))))
+  ([targets] (first (sort (zipmap (map #(length? %) (getDeliveryRoutes targets)) (map #(flt %) (getDeliveryRoutes targets))))))
+  ([start targets] (first (sort (zipmap (map #(length? %) (getDeliveryRoutes start targets)) (map #(flt %) (getDeliveryRoutes start targets)))))))
+
+(getShortestRoute "r103" ["office" "r101"])
 
 
-(defn getUncollectedPackages
-  [location]
-  (filter #(= location (first %)) packagesToCollect)
-)
+(defn getDestinations
+  "gets all the destinations the robot needs to visit"
+  []
+  (if (empty? packagesToDeliver)
+    (if (empty? packagesToCollect)
+      []  
+      (map #(first %) packagesToCollect))
+    (if (empty? packagesToCollect)
+      packagesToDeliver
+      (conj (map #(first %) packagesToCollect) packagesToDeliver))))
 
-(defn getUncollectedPackages
-  [location]
-  (filter #(not (= location (first %))) packagesToCollect)
-)
 
-(defn go [packages]
-  (loop [
-    p packages
-   r []]
-    (if (empty? packages)
-      r
-      (recur ( p) (conj r (getShortestRoute (filter #(first %) p)))))))
 
-(go ["r131" "r101"])
+(defn getFirstDestination
+  ([d] (last (last (first (last (getShortestRoute d))))))
+  ([s d] (last (last (first (last (getShortestRoute s d)))))))
+
+(defn getFirstPath
+  ([d] (last (first (last (getShortestRoute d)))))
+  ([s d] (last (first (last (getShortestRoute s d))))))
+
+
+(defn getFirstPathDistance
+  ([d] (first (first (last (getShortestRoute d)))))
+  ([s d] (first (first (last (getShortestRoute s d))))))
+
+(defn collectPackages
+  [d p]
+  (map #(second %) (filter #(= (getFirstDestination d) (first %)) p)))
+
+(defn run []
+  (loop [d (getDestinations)
+         p packagesToCollect
+         r []
+         s "office"
+         l 0]
+    (if (empty? d)
+      {"Length" l "Route" r}
+      (recur (distinct (flatten (conj (remove #{(getFirstDestination s d)} d) (collectPackages d p))))
+             (filter #(not (= (getFirstDestination s d) (first %))) p) 
+             (conj r (getFirstPath s d))
+             (getFirstDestination s d)
+             (+ l (getFirstPathDistance s d))))))
+
+
+(run)
