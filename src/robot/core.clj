@@ -131,21 +131,24 @@
   [d p]
   (map #(second %) (filter #(= (getFirstDestination d) (first %)) p)))
 
-(defn run [ptc ptd]
-  (loop [d (conj (getDestinations ptc ptd) "office")
+
+(defn run 
+  ([ptc ptd] (run ptc ptd "office"))
+  ([ptc ptd start]
+    (loop [d (conj (getDestinations ptc ptd) "office")
          p ptc ;;packages to collect
          r []
-         s "office"
+         s start
          l 0]
-    (if (<= (count d) 1)
-      {"Length" l "Route" r}
-      (recur (conj (flatten (conj (remove #{(getFirstDestination s d)} d) (collectPackages d p))) "office" )
-             (filter #(not (= (getFirstDestination s d) (first %))) p) 
-             (conj r (getFirstPath s d))
-             (getFirstDestination s d)
-             (+ l (getFirstPathDistance s d))))))
+      (if (<= (count d) 1)
+        {"Length" l "Route" r}
+          (recur (conj (flatten (conj (remove #{(getFirstDestination s d)} d) (collectPackages d p))) "office" )
+              (filter #(not (= (getFirstDestination s d) (first %))) p) 
+              (conj r (getFirstPath s d))
+              (getFirstDestination s d)
+              (+ l (getFirstPathDistance s d)))))))
 
-(<= 2 1)
+
 (run [["r131" "office"]] []) ;;Task 1 Collect a parcel from the main office and deliver it to R131
 (run [["r119" "office"]] []) ;;Task 2 Collect a parcel from the main office and deliver it to R119
 (run [["r113" "r115"]] []) ;;Task 3 Collect a parcel from R113 and deliver it to room R115
@@ -153,3 +156,7 @@
 (run [["office" "r113"] ["r113" "office"]] []) ;; Task 5 Take a parcel from office to R131. Collect another from R131 and deliver to office
 (run [] ["r131" "r111"]) ;; Task 6 Take two parcels from the main office to rooms r131 and r111
 (run [["r121" "office"]] ["r131" "r111"]) ;; Task 7 (and 8?) Take 2 parcels from main office to r131 and r111. Collect a parcel from r121 and bring to office
+
+;;Cool stuff
+;;- Parallelized by spawning a new thread for each possible route using 'pmap'
+;;- 
