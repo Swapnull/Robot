@@ -104,21 +104,13 @@
       ptd
       (conj (map #(first %) ptc) ptd))))
 
-;;(defn getFirstDestination
-;;  ([d] (last (last (first (last (getShortestRoute d))))))
-;;  ([s d] (last (last (first (last (getShortestRoute s d)))))))
-;;(defn getFirstPath
-;;  ([d] (last (first (last (getShortestRoute d)))))
-;;  ([s d] (last (first (last (getShortestRoute s d))))))
-;;(defn getFirstPathDistance
-;;  ([d] (first (first (last (getShortestRoute d)))))
-;;  ([s d] (first (first (last (getShortestRoute s d))))))
-
 (defn collectPackages
-  [d p]
-  (map #(second %) (filter #(= (getFirstDestination d) (first %)) p)))
+  "get destination of any packages in the current location"
+  [location packages]
+  (map #(second %) (filter #(= location (first %)) packages)))
 
-(defn routeData 
+(defn routeData
+  "Returns data for use in run function" 
   [start destinations]
   (let [route (getShortestRoute start destinations)]
     {
@@ -126,8 +118,6 @@
     :firstPath (last (first (last route)))
     :firstStop (last (last (first (last route))))
     }))
-
-(routeData "office" ["r113" "r129"])
 
 (defn run 
   ([ptc ptd] (run ptc ptd "office"))
@@ -137,18 +127,26 @@
          r []
          s start
          l 0]
-      (if (<= (count d) 1)
+      (prn "d: " d)
+      (prn "p: " p)
+      (prn "s: " s)
+      (if (or (empty? d) (and (= 1 (count d)) (= s "office")))
         {"Length" l "Route" r}
         (let [data (routeData s d)]
-          (recur (conj (flatten (conj (remove #{(getFirstDestination s d)} d) (collectPackages d p))) "office" )
-              (filter #(not (= (getFirstDestination s d) (first %))) p) 
-              (conj r (getFirstPath s d))
-              (getFirstDestination s d)
-              (+ l (getFirstPathDistance s d))))))))
+          (recur  
+            (distinct (conj (flatten (conj (filter #(not (= (get data :firstStop) %)) d) (collectPackages (get data :firstStop) p))) "office"))
+            (filter #(not (= (get data :firstStop) (first %))) p) 
+            (conj r (get data :firstPath))
+            (get data :firstStop)
+            (+ l (get data :length))))))))
+
+(remove #{(routeData "r113" ["office" "r115"])} ["office" "r115" "r112"])
+(remove #{["office" "r115" "r112"]} (get (routeData "r113" ["office" "r115"]) :firstStop ))
+(filter #(not (= (get (routeData "office" ["office" "r113"]) :firstStop) %)) ["office" "r113"])
+(collectPackages ()  [["r113" "r115"]])
 
 
-
-(getShortestRoute ["r131" "office"])
+(getShortestRoute ["r113" "r115"])
 ;;TASKS
 ;; Here are the tasks for the submission. They are commented as the REPL takes forever to load/timesout otherwise
 
