@@ -1,14 +1,9 @@
 (ns robot.core
   (:require [clojure.math.combinatorics :as combo]))
-;;  (:use [clojure.repl]
-;;   [seesaw.core]))
 
 ;;Load external data files
 (load-file "src/robot/possibleMoves.clj") ;; contains all the possible moves
 (load-file "src/robot/weights.clj") ;; contains any extra weight for vertices
-
-;;(def packagesToCollect [["r101" "r105"] ["r103" "office"]]) ;; [start target]
-;;(def packagesToDeliver [])
 
 ;; HELPER FUNCTIONS
 (defn in?
@@ -27,7 +22,7 @@
   [data]
   (loop [w weights
          c (first w)
-         t 0  
+         t 0
          i 1] 
     (if (empty? w)
       (+ (- (count data) i) t)
@@ -51,21 +46,20 @@
   (filter #(not (in? path %)) (getPossibleMoves node)))
 
 
-(defn getVertex
+(defn getRoutes
   "Get all the routes between two nodes"
-  ([s t] (getVertex s t [])) ;; only start and target provided
+  ([s t] (getRoutes s t [])) ;; only start and target provided
   ([s t p]
     (if(= s t)
-     (conj p t)
+      (conj p t)
       (if (empty? (getNewNodes s p))
           nil  ;; no moves available, return nil to signal this
-          (flt (map #(flt (getVertex % t (conj p s)))  (getNewNodes s (conj p s)))) ;; recur for every option
-      ))))
+          (flt (map #(flt (getRoutes % t (conj p s))) (getNewNodes s (conj p s))))))))
   
 (defn getShortestVertex 
   "Get the shortest vertex between two nodes"
   [start target]
-  (first (sort (zipmap (map #(min (cost? %)) (getVertex start target)) (getVertex start target)))))
+  (first (sort (zipmap (map #(min (cost? %)) (getRoutes start target)) (getRoutes start target)))))
 
 (defn getPossibleRoute
   "build up a route from data"
@@ -76,18 +70,16 @@
       (recur (rest d) (conj r (getShortestVertex (first d) (second d)))))))
 
 (defn buildList
+  "builds a list of targets ensuring there is no duplicates"
   [start targets end]
-  (loop [t targets
-         l []]
+  (loop [t targets    ;;list of targets
+         c (first t)  ;;current item
+         l []]        ;;output list 
     (if (empty? t)
       [start l end]
-      (if (or (in? l (first t)) (or (= start (first t)) (= end (first t))))
-        (recur (rest t) l)
-        (recur (rest t) (conj l (first t)))
-      )
-    )
-  )
-)
+      (if (or (in? l c) (or (= start c) (= end c)))
+        (recur (rest t) (second t) l)
+        (recur (rest t) (second t) (conj l c))))))
 
 (defn getDeliveryRoutes
   "get all the valid delivery routes"
@@ -112,25 +104,30 @@
       ptd
       (conj (map #(first %) ptc) ptd))))
 
-
-
-(defn getFirstDestination
-  ([d] (last (last (first (last (getShortestRoute d))))))
-  ([s d] (last (last (first (last (getShortestRoute s d)))))))
-
-(defn getFirstPath
-  ([d] (last (first (last (getShortestRoute d)))))
-  ([s d] (last (first (last (getShortestRoute s d))))))
-
-
-(defn getFirstPathDistance
-  ([d] (first (first (last (getShortestRoute d)))))
-  ([s d] (first (first (last (getShortestRoute s d))))))
+;;(defn getFirstDestination
+;;  ([d] (last (last (first (last (getShortestRoute d))))))
+;;  ([s d] (last (last (first (last (getShortestRoute s d)))))))
+;;(defn getFirstPath
+;;  ([d] (last (first (last (getShortestRoute d)))))
+;;  ([s d] (last (first (last (getShortestRoute s d))))))
+;;(defn getFirstPathDistance
+;;  ([d] (first (first (last (getShortestRoute d)))))
+;;  ([s d] (first (first (last (getShortestRoute s d))))))
 
 (defn collectPackages
   [d p]
   (map #(second %) (filter #(= (getFirstDestination d) (first %)) p)))
 
+(defn routeData 
+  [start destinations]
+  (let [route (getShortestRoute start destinations)]
+    {
+    :length (first (first (last route)))
+    :firstPath (last (first (last route)))
+    :firstStop (last (last (first (last route))))
+    }))
+
+(routeData "office" ["r113" "r129"])
 
 (defn run 
   ([ptc ptd] (run ptc ptd "office"))
@@ -142,21 +139,25 @@
          l 0]
       (if (<= (count d) 1)
         {"Length" l "Route" r}
+        (let [data (routeData s d)]
           (recur (conj (flatten (conj (remove #{(getFirstDestination s d)} d) (collectPackages d p))) "office" )
               (filter #(not (= (getFirstDestination s d) (first %))) p) 
               (conj r (getFirstPath s d))
               (getFirstDestination s d)
-              (+ l (getFirstPathDistance s d)))))))
+              (+ l (getFirstPathDistance s d))))))))
 
 
-(run [["r131" "office"]] []) ;;Task 1 Collect a parcel from the main office and deliver it to R131
-(run [["r119" "office"]] []) ;;Task 2 Collect a parcel from the main office and deliver it to R119
-(run [["r113" "r115"]] []) ;;Task 3 Collect a parcel from R113 and deliver it to room R115
-(run [["r113" "r129"]] []) ;;Task 4 Collect a parcel from R113 and deliver it to room R129
-(run [["office" "r113"] ["r113" "office"]] []) ;; Task 5 Take a parcel from office to R131. Collect another from R131 and deliver to office
-(run [] ["r131" "r111"]) ;; Task 6 Take two parcels from the main office to rooms r131 and r111
-(run [["r121" "office"]] ["r131" "r111"]) ;; Task 7 (and 8?) Take 2 parcels from main office to r131 and r111. Collect a parcel from r121 and bring to office
 
-;;Cool stuff
-;;- Parallelized by spawning a new thread for each possible route using 'pmap'
-;;- 
+(getShortestRoute ["r131" "office"])
+;;TASKS
+;; Here are the tasks for the submission. They are commented as the REPL takes forever to load/timesout otherwise
+
+;;(run [["r131" "office"]] []) ;;Task 1 Collect a parcel from the main office and deliver it to R131
+;;(run [["r119" "office"]] []) ;;Task 2 Collect a parcel from the main office and deliver it to R119
+;;(run [["r113" "r115"]] []) ;;Task 3 Collect a parcel from R113 and deliver it to room R115
+;;(run [["r113" "r129"]] []) ;;Task 4 Collect a parcel from R113 and deliver it to room R129
+;;(run [["office" "r113"] ["r113" "office"]] []) ;; Task 5 Take a parcel from office to R131. Collect another from R131 and deliver to office
+;;(run [] ["r131" "r111"]) ;; Task 6 Take two parcels from the main office to rooms r131 and r111
+;;(run [["r121" "office"]] ["r131" "r111"]) ;; Task 7 (and 8?) Take 2 parcels from main office to r131 and r111. Collect a parcel from r121 and bring to office
+
+ 
