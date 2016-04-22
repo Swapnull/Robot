@@ -1,5 +1,6 @@
 (ns robot.core
-  (:require [clojure.math.combinatorics :as combo]))
+  (:require [clojure.math.combinatorics :as combo] [io.aviso.ansi :as pretty]))
+
 
 ;;Load external data files
 (load-file "src/robot/possibleMoves.clj") ;; contains all the possible moves
@@ -10,6 +11,8 @@
  "true if collection contains element"
   [collection element]
   (some #(= element %) collection))
+
+(defn abs [n] (max n (- n)))
 
 ;; function taken from http://stackoverflow.com/a/35300641/2237577
 (defn flt 
@@ -59,7 +62,9 @@
 (defn getShortestVertex 
   "Get the shortest vertex between two nodes"
   [start target]
-  (first (sort (zipmap (map #(min (cost? %)) (getRoutes start target)) (getRoutes start target)))))
+  (let [routes (getRoutes start target)]
+   ;; (prn (str "Found " (count routes) " possible routes from " start " to " target ".") )
+    (first (sort (zipmap (map #(min (cost? %)) routes) routes)))))
 
 (defn getPossibleRoute
   "build up a route from data"
@@ -72,9 +77,9 @@
 (defn buildList
   "builds a list of targets ensuring there is no duplicates"
   [start targets end]
-  (loop [t targets    ;;list of targets
-         c (first t)  ;;current item
-         l []]        ;;output list 
+  (loop [t targets    
+         c (first t)  
+         l []]         
     (if (empty? t)
       [start l end]
       (if (or (in? l c) (or (= start c) (= end c)))
@@ -90,8 +95,10 @@
 
 (defn getShortestRoute 
   "gets all the valid routes and their costs and then returns the lowest cost"
-  ([targets] (first (sort (zipmap (map #(length? %) (getDeliveryRoutes targets)) (map #(flt %) (getDeliveryRoutes targets))))))
-  ([start targets] (first (sort (zipmap (map #(length? %) (getDeliveryRoutes start targets)) (map #(flt %) (getDeliveryRoutes start targets)))))))
+  ([targets] (let [routes (getDeliveryRoutes targets)]
+               (first (sort (zipmap (map #(length? %) routes) (map #(flt %) routes))))))
+  ([start targets] (let [routes (getDeliveryRoutes start targets)]
+                     (first (sort (zipmap (map #(length? %) routes) (map #(flt %) routes)))))))
 
 (defn getDestinations
   "gets all the destinations the robot needs to visit"
@@ -119,19 +126,36 @@
     :firstStop (last (last (first (last route))))
     }))
 
+(defn validateLocations
+  [locations]
+  (if (in? (map #(in? (keys possibleMoves) %) locations) nil)
+    (throw (Exception. "Incorrect location supplied"))
+    (prn (pretty/blue "Locations validated"))))
+
+(defn strip [coll chars]
+    (apply str (remove #((set chars) %) coll)))
+
 (defn run 
   ([ptc ptd] (run ptc ptd "office"))
   ([ptc ptd start]
-    (loop [d (conj (getDestinations ptc ptd) "office")
+    (validateLocations (flatten (conj ptc ptd)))
+    (prn (str "Detected " (+ (count ptc) (count ptd)) " package to collect and deliver")) 
+    (prn (str "Starting at " (pretty/bold-green start)))
+    (loop [d (flatten (conj (getDestinations ptc ptd) "office"))
          p ptc ;;packages to collect
          r []
          s start
          l 0]
-      (prn "d: " d)
-      (prn "p: " p)
-      (prn "s: " s)
-      (if (or (empty? d) (and (= 1 (count d)) (= s "office")))
-        {"Length" l "Route" r}
+      (if (in? (map #(first %) ptc) s)
+        (prn (str "Collected a package from " (pretty/bold-green s) " for " (pretty/bold-red (second (get ptc (.indexOf (map #(first %) ptc) s))))))
+        (if (or (in? ptd s) (and (and (<= (count d) 1) (= s "office")) (not (empty? r))))
+          (prn (str "Delivered package to " (pretty/bold-green s)))
+          nil))
+      (if (or (empty? d) (and (<= (count d) 1) (= s "office")))
+        (prn { 
+             :finalDestination (pretty/blue s) 
+             :path r
+             :distance (pretty/magenta l) })
         (let [data (routeData s d)]
           (recur  
             (distinct (conj (flatten (conj (filter #(not (= (get data :firstStop) %)) d) (collectPackages (get data :firstStop) p))) "office"))
@@ -139,14 +163,6 @@
             (conj r (get data :firstPath))
             (get data :firstStop)
             (+ l (get data :length))))))))
-
-(remove #{(routeData "r113" ["office" "r115"])} ["office" "r115" "r112"])
-(remove #{["office" "r115" "r112"]} (get (routeData "r113" ["office" "r115"]) :firstStop ))
-(filter #(not (= (get (routeData "office" ["office" "r113"]) :firstStop) %)) ["office" "r113"])
-(collectPackages ()  [["r113" "r115"]])
-
-
-(getShortestRoute ["r113" "r115"])
 ;;TASKS
 ;; Here are the tasks for the submission. They are commented as the REPL takes forever to load/timesout otherwise
 
@@ -154,8 +170,7 @@
 ;;(run [["r119" "office"]] []) ;;Task 2 Collect a parcel from the main office and deliver it to R119
 ;;(run [["r113" "r115"]] []) ;;Task 3 Collect a parcel from R113 and deliver it to room R115
 ;;(run [["r113" "r129"]] []) ;;Task 4 Collect a parcel from R113 and deliver it to room R129
-;;(run [["office" "r113"] ["r113" "office"]] []) ;; Task 5 Take a parcel from office to R131. Collect another from R131 and deliver to office
+;;(run [["r131" "office"]] ["r131"]) ;; Task 5 Take a parcel from office to R131. Collect another from R131 and deliver to office
 ;;(run [] ["r131" "r111"]) ;; Task 6 Take two parcels from the main office to rooms r131 and r111
 ;;(run [["r121" "office"]] ["r131" "r111"]) ;; Task 7 (and 8?) Take 2 parcels from main office to r131 and r111. Collect a parcel from r121 and bring to office
 
- 
